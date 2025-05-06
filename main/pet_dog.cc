@@ -91,14 +91,14 @@ void PetDog::InitializeDog(gpio_num_t LEDC_OUTPUT_IO_1, gpio_num_t LEDC_OUTPUT_I
         auto this_ = (PetDog*)arg;
         this_->ActionTask();
         vTaskDelete(NULL);
-    },"actionTask",2048,this,1,nullptr);
+    },"actionTask",3072,this,1,nullptr);
 
     xTaskCreate([](void* arg)
     {
         auto this_ = (PetDog*)arg;
         this_->ActionIdleTask();
         vTaskDelete(NULL);
-    },"action_idle_task",2048,this,1,NULL);
+    },"action_idle_task",3072,this,1,NULL);
 }
 
 void PetDog::OnActionTask(std::function<void()> callback)
@@ -459,7 +459,7 @@ void PetDog::Action(int  action)
                 auto this_ = (PetDog*)arg;
                 this_->turnLeft();
                 vTaskDelete(NULL);
-            },"TurnLeft",2048,this,1,NULL);
+            },"TurnLeft",3072,this,1,NULL);
             break;
         case kActionStateTurnRight:
             xTaskCreate([](void* arg)
@@ -467,7 +467,7 @@ void PetDog::Action(int  action)
                 auto this_ = (PetDog*)arg;
                 this_->turnRight();
                 vTaskDelete(NULL);
-            },"TurnRight",2048,this,1,NULL);
+            },"TurnRight",3072,this,1,NULL);
             break;
         case kActionStateWalk:
             xTaskCreate([](void* arg)
@@ -475,7 +475,7 @@ void PetDog::Action(int  action)
                 auto this_ = (PetDog*)arg;
                 this_->walkfront();
                 vTaskDelete(NULL);
-            },"walkfront",2048,this,1,NULL);
+            },"walkfront",3072,this,1,NULL);
             break;
         case kActionStateWalkBack:
             xTaskCreate([](void* arg)
@@ -483,7 +483,7 @@ void PetDog::Action(int  action)
                 auto this_ = (PetDog*)arg;
                 this_->walkBack();
                 vTaskDelete(NULL);
-            },"walkBack",2048,this,1,NULL);
+            },"walkBack",3072,this,1,NULL);
             break;
         case kActionStateSleep:
             stop();
@@ -507,6 +507,13 @@ void PetDog::Action(int  action)
     }
 }
 
+void PetDog:: Action(int action,int time_ms)
+{
+    Action(action);
+    vTaskDelay(time_ms / portTICK_PERIOD_MS);
+    Action(kActionStateStop);
+}
+
 void PetDog::to_any_angle_task(uint8_t lf_angle,uint8_t rf_angle,uint8_t lb_angle,uint8_t rb_angle)
 {
     lf_.angle = lf_angle;
@@ -519,28 +526,28 @@ void PetDog::to_any_angle_task(uint8_t lf_angle,uint8_t rf_angle,uint8_t lb_angl
         auto this_ = (PetDog*)arg;
         this_->to_tar_angle(&this_->lf_);
         vTaskDelete(NULL);
-    }, "to_tar_angle", 2048, this, 1, NULL);
+    }, "to_tar_angle", 3072, this, 1, NULL);
 
     xTaskCreate([](void* arg)
     {
         auto this_ = (PetDog*)arg;
         this_->to_tar_angle(&this_->rf_);
         vTaskDelete(NULL);
-    }, "to_tar_angle", 2048, this, 1, NULL);
+    }, "to_tar_angle", 3072, this, 1, NULL);
 
     xTaskCreate([](void* arg)
     {
         auto this_ = (PetDog*)arg;
         this_->to_tar_angle(&this_->lb_);
         vTaskDelete(NULL);
-    }, "to_tar_angle", 2048, this, 1, NULL);
+    }, "to_tar_angle", 3072, this, 1, NULL);
 
     xTaskCreate([](void* arg)
     {
         auto this_ = (PetDog*)arg;
         this_->to_tar_angle(&this_->rb_);
         vTaskDelete(NULL);
-    }, "to_tar_angle", 2048, this, 1, NULL);
+    }, "to_tar_angle", 3072, this, 1, NULL);
     vTaskDelay(500 / portTICK_PERIOD_MS);       //很重要
     xEventGroupSetBits(action_task_event_,START_TASK_EVENT);
     

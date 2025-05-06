@@ -7,6 +7,7 @@
 #include "config.h"
 #include "iot/thing_manager.h"
 #include "led/single_led.h"
+#include "led/circular_strip.h"
 #include "pet_dog.h"
 
 #include <wifi_station.h>
@@ -23,6 +24,7 @@ private:
     Button volume_up_button_;
     Button volume_down_button_;
     SystemReset system_reset_;
+
 
     void InitializeDisplayI2c() {
         i2c_master_bus_config_t bus_config = {
@@ -106,12 +108,7 @@ public:
 
         InitializeDisplayI2c();
         InitializeButtons();
-        InitializeIot();
-    }
-
-    virtual Led* GetLed() override {
-        static SingleLed led(BUILTIN_LED_GPIO);
-        return &led;
+        InitializeIot();       
     }
 
     virtual AudioCodec* GetAudioCodec() override {

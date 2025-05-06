@@ -28,6 +28,7 @@ private:
 
     lv_obj_t *square1 = NULL;   //眼睛
     lv_obj_t *square2 = NULL;
+    lv_obj_t *emojy_lable = NULL;
 
     int cur_square1_x = 0;
     int cur_square1_y = 0;

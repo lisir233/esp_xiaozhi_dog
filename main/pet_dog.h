@@ -57,6 +57,8 @@
 #define LEDC_OUTPUT_IO_3        GPIO_NUM_13
 #define LEDC_OUTPUT_IO_4        GPIO_NUM_18
 
+#define STEP_TO_TIME_MS(x)      (x * 500)
+
 typedef enum
 {
     LEG1,
@@ -99,6 +101,7 @@ public:
     void idle_activate(int rand_actin);
 
     void Action(int action);
+    void Action(int action,int time_ms);
 
 private:
     EventGroupHandle_t action_task_event_;

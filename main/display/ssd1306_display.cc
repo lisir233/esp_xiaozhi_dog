@@ -172,6 +172,13 @@ void Ssd1306Display::SetupUI_128x64() {
     lv_obj_add_flag(square1, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(square2, LV_OBJ_FLAG_HIDDEN);
 
+    emojy_lable = lv_label_create(screen);                 
+    lv_obj_set_flex_grow(emojy_lable, 1);
+    lv_obj_set_style_text_align(emojy_lable, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(emojy_lable, "❤ ❤");
+    lv_obj_set_style_text_font(emojy_lable, &lv_font_montserrat_48, 0);
+    lv_obj_clear_flag(emojy_lable, LV_OBJ_FLAG_HIDDEN);
+
 /*************************************************************************************/
 
     /* Container */
