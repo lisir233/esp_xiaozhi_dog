@@ -26,7 +26,7 @@
 #define AUDIO_I2S_GPIO_DOUT GPIO_NUM_7
 
 #endif
-
+#define CHRG_PIN                GPIO_NUM_NC
 #define BUILTIN_LED_GPIO        GPIO_NUM_48
 #define BOOT_BUTTON_GPIO        GPIO_NUM_0
 #define TOUCH_BUTTON_GPIO       GPIO_NUM_47
@@ -40,7 +40,7 @@
 #define DISPLAY_WIDTH   128
 #define DISPLAY_HEIGHT  64
 #define DISPLAY_MIRROR_X true
-    #define DISPLAY_MIRROR_Y true
+#define DISPLAY_MIRROR_Y true
 
 
 #endif // _BOARD_CONFIG_H_

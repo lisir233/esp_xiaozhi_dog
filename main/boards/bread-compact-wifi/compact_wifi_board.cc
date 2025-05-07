@@ -9,6 +9,7 @@
 #include "led/single_led.h"
 #include "led/circular_strip.h"
 #include "pet_dog.h"
+#include "power_manager.h"
 
 #include <wifi_station.h>
 #include <esp_log.h>
@@ -24,6 +25,7 @@ private:
     Button volume_up_button_;
     Button volume_down_button_;
     SystemReset system_reset_;
+    PowerManager* power_manager_;
 
 
     void InitializeDisplayI2c() {
@@ -105,7 +107,7 @@ public:
         system_reset_(RESET_NVS_BUTTON_GPIO, RESET_FACTORY_BUTTON_GPIO) {
         // Check if the reset button is pressed
         system_reset_.CheckButtons();
-
+        InitializePowerManager();
         InitializeDisplayI2c();
         InitializeButtons();
         InitializeIot();       
@@ -126,6 +128,18 @@ public:
         static Ssd1306Display display(display_i2c_bus_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
         return &display;
     }
+    void InitializePowerManager() {
+        power_manager_ = new PowerManager(CHRG_PIN);
+        power_manager_->OnChargingStatusChanged([this](bool is_charging) {
+        });
+        
+    }
+    virtual bool GetBatteryLevel(int& level, bool& charging) override {
+        charging = power_manager_->IsCharging();
+        level = power_manager_->GetBatteryLevel();
+        return true;
+    }
+
 };
 
 DECLARE_BOARD(CompactWifiBoard);
