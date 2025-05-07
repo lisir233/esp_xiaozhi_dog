@@ -14,10 +14,7 @@
 #include <driver/i2c_master.h>
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_panel_vendor.h>
-
-#ifdef SH1106
-#include <esp_lcd_panel_sh1106.h>
-#endif
+#include <esp_lcd_panel_ssd1306.h>
 
 #define TAG "CompactWifiBoard"
 
@@ -80,12 +77,9 @@ private:
         };
         panel_config.vendor_config = &ssd1306_config;
 
-#ifdef SH1106
-        ESP_ERROR_CHECK(esp_lcd_new_panel_sh1106(panel_io_, &panel_config, &panel_));
-#else
+        // 使用统一的初始化函数，它会自动检测显示屏类型
         ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(panel_io_, &panel_config, &panel_));
-#endif
-        ESP_LOGI(TAG, "SSD1306 driver installed");
+        ESP_LOGI(TAG, "Display driver installed");
 
         // Reset the display
         ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_));
