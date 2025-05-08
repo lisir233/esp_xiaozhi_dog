@@ -169,15 +169,20 @@ void Ssd1306Display::SetupUI_128x64() {
     cur_square2_x = lv_obj_get_x_aligned(square2);
     cur_square2_y = lv_obj_get_y_aligned(square2);
 
-    lv_obj_add_flag(square1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(square2, LV_OBJ_FLAG_HIDDEN);
+    if (!show_eyes_) {
+        lv_obj_add_flag(square1, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(square2, LV_OBJ_FLAG_HIDDEN);
+    }
 
     emojy_lable = lv_label_create(screen);                 
-    lv_obj_set_flex_grow(emojy_lable, 1);
+    lv_obj_set_size(emojy_lable, LV_SIZE_CONTENT, LV_SIZE_CONTENT);  // 设置大小为内容大小
     lv_obj_set_style_text_align(emojy_lable, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_text(emojy_lable, "❤ ❤");
+    lv_label_set_text(emojy_lable, "-_-");
     lv_obj_set_style_text_font(emojy_lable, &lv_font_montserrat_48, 0);
-    lv_obj_clear_flag(emojy_lable, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_center(emojy_lable);  // 在屏幕中居中显示
+    if (!show_emojy_label_) {
+        lv_obj_add_flag(emojy_lable, LV_OBJ_FLAG_HIDDEN);
+    }
 
 /*************************************************************************************/
 
@@ -205,6 +210,9 @@ void Ssd1306Display::SetupUI_128x64() {
     lv_obj_set_style_text_font(emotion_label_, &font_awesome_30_1, 0);  
     lv_label_set_text(emotion_label_, FONT_AWESOME_AI_CHIP);            //设置机器人图标
     lv_obj_center(emotion_label_);                                      //居中
+    if (!show_emotion_label_) {
+        lv_obj_add_flag(emotion_label_, LV_OBJ_FLAG_HIDDEN);
+    }
 
     /* Status bar */
     lv_obj_set_flex_flow(status_bar_, LV_FLEX_FLOW_ROW);                // 布局流动方向为水平方向
@@ -231,9 +239,11 @@ void Ssd1306Display::SetupUI_128x64() {
     lv_label_set_text(mute_label_, "");
     lv_obj_set_style_text_font(mute_label_, &font_awesome_14_1, 0);
 
-    battery_label_ = lv_label_create(status_bar_);
+    battery_label_ = lv_label_create(screen);
     lv_label_set_text(battery_label_, "");
     lv_obj_set_style_text_font(battery_label_, &font_awesome_14_1, 0);
+    lv_obj_align(battery_label_, LV_ALIGN_TOP_RIGHT, -2, 2);  // 放置在右上角，留出2像素边距
+    lv_obj_clear_flag(battery_label_, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
 }
@@ -304,6 +314,9 @@ void Ssd1306Display::SetupUI_128x32() {
     lv_obj_set_style_text_font(emotion_label_, &font_awesome_30_1, 0);
     lv_label_set_text(emotion_label_, FONT_AWESOME_AI_CHIP);
     lv_obj_center(emotion_label_);
+    if (!show_emotion_label_) {
+        lv_obj_add_flag(emotion_label_, LV_OBJ_FLAG_HIDDEN);
+    }
 
     /* Status bar */
     status_bar_ = lv_obj_create(side_bar_);
@@ -322,9 +335,10 @@ void Ssd1306Display::SetupUI_128x32() {
     lv_label_set_text(mute_label_, "");
     lv_obj_set_style_text_font(mute_label_, &font_awesome_14_1, 0);
 
-    battery_label_ = lv_label_create(status_bar_);
+    battery_label_ = lv_label_create(screen);
     lv_label_set_text(battery_label_, "");
     lv_obj_set_style_text_font(battery_label_, &font_awesome_14_1, 0);
+    lv_obj_align(battery_label_, LV_ALIGN_TOP_RIGHT, -2, 2);  // 放置在右上角，留出2像素边距
 
     status_label_ = lv_label_create(side_bar_);
     lv_obj_set_flex_grow(status_label_, 1);
@@ -342,6 +356,8 @@ void Ssd1306Display::SetupUI_128x32() {
 
 void Ssd1306Display::to_any_position(int tar1x,int tar1y,int tarx2,int tary2)
 {
+    if (!show_eyes_) return;  // 如果眼睛不显示，直接返回
+
     int ret1[100];
     int ret2[100];
     int num = bresenham_line(cur_square1_x, cur_square1_y, tar1x, tar1y,ret1);
@@ -365,6 +381,8 @@ void Ssd1306Display::to_any_position(int tar1x,int tar1y,int tarx2,int tary2)
 
 void Ssd1306Display::close_eyes()
 {
+    if (!show_eyes_) return;  // 如果眼睛不显示，直接返回
+    
     for (size_t i = EYE_SIZE; i > 10; i--)
     {
         lv_obj_set_size(square1,EYE_SIZE+i*0.1,i);
@@ -373,9 +391,10 @@ void Ssd1306Display::close_eyes()
     }
 }
 
-
 void Ssd1306Display::open_eyes()
 {
+    if (!show_eyes_) return;  // 如果眼睛不显示，直接返回
+    
     for (size_t i = 10; i < EYE_SIZE; i++)
     {
         lv_obj_set_size(square1,EYE_SIZE,i);
@@ -386,10 +405,10 @@ void Ssd1306Display::open_eyes()
 
 void Ssd1306Display::blink_eyes()
 {
+    if (!show_eyes_) return;  // 如果眼睛不显示，直接返回
     close_eyes();
     open_eyes();
 }
-
 
 void Ssd1306Display::blink_task()
 {
@@ -397,6 +416,11 @@ void Ssd1306Display::blink_task()
     int flag = 0;
     while(1)
     {
+        if (!show_eyes_) {
+            vTaskDelay(100 / portTICK_PERIOD_MS);  // 短暂延时后继续检查
+            continue;
+        }
+
         srand(time(NULL));
         rand_ = rand() % 51;
         flag = rand() % 101;
@@ -413,7 +437,7 @@ void Ssd1306Display::blink_task()
         else
             rand_ = 6;
         vTaskDelay(rand_ * 1000 / portTICK_PERIOD_MS);
-        if(flag < EYE_BLINK_FREQ)
+        if(flag < EYE_BLINK_FREQ && show_eyes_)  // 再次检查显示状态
         {
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             blink_eyes();
@@ -428,69 +452,52 @@ void Ssd1306Display::eye_move_emtion_task()
     int y = 0;
     while (1)
     {
+        if (!show_eyes_) {
+            vTaskDelay(100 / portTICK_PERIOD_MS);  // 短暂延时后继续检查
+            continue;
+        }
+
         srand(time(NULL));
         x = rand() % 31 - 15;
         y = rand() % 31 - 15;
         vTaskDelay(3000 / portTICK_PERIOD_MS);
-        to_any_position(EYE_GAP + x,0 + y,-EYE_GAP + x,0 + y);
+        if (show_eyes_) {  // 再次检查显示状态
+            to_any_position(EYE_GAP + x,0 + y,-EYE_GAP + x,0 + y);
+        }
     }
 }
 
 void Ssd1306Display::start_emtion()
 {
-    open_eyes();
-    xTaskCreate([](void* arg)
-    {
-        auto this_ = (Ssd1306Display*)arg;
-        this_->blink_task();
-        vTaskDelete(NULL);
-    }, "blink_task", 2048, this, 5, &blink_task_handle);
+    ESP_LOGI(TAG, "start_emtion");
+    const char* emojis[] = {"$ $", "> <", "X X", "@_@" ,"T T" ,"O_O" };
+    srand(time(NULL));
+    int random_index = rand() % 6;
+    ESP_LOGI(TAG, "random_index: %d", random_index);
+    lv_label_set_text(emojy_lable, emojis[random_index]);
+    // open_eyes();
+    // SetShowEyes(false);  // 这会自动启动眼睛动画任务
+    // lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
 
-    xTaskCreate([](void* arg)
-    {
-        auto this_ = (Ssd1306Display*)arg;
-        this_->eye_move_emtion_task();
-        vTaskDelete(NULL);
-    }, "eye_move_emtion_task", 3096, this, 5, &idle_task_handle);
-
-    lv_obj_clear_flag(square1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(square2, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Ssd1306Display::stop_emtion()
 {
-    if (blink_task_handle != NULL)
-    {
-        vTaskDelete(blink_task_handle);
-    }
-    if(idle_task_handle != NULL)
-    {
-        vTaskDelete(idle_task_handle);
-    }
-    
-    lv_obj_add_flag(square1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(square2, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
+    ESP_LOGI(TAG, "stop_emtion");
+    // SetShowEyes(false);  // 这会自动停止眼睛动画任务
+    // lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Ssd1306Display::idle_emtion()
 {
-    if (blink_task_handle != NULL)
-    {
-        vTaskDelete(blink_task_handle);
-    }
-    if(idle_task_handle != NULL)
-    {
-        vTaskDelete(idle_task_handle);
-    }
-    if (square1 != NULL)
-    {
-        lv_obj_clear_flag(square1, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(square2, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
-    }
-
-    to_any_position(EYE_GAP,0,-EYE_GAP,0);
-    close_eyes();
+    ESP_LOGI(TAG, "idle_emtion");
+    lv_label_set_text(emojy_lable, "-_-");
+    lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+    // if (square1 != NULL)
+    // {
+    //     lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+    //     // to_any_position(EYE_GAP,0,-EYE_GAP,0);
+    //     // close_eyes();
+    //     // SetShowEyes(false);  // 这会自动启动眼睛动画任务
+    // }
 }
