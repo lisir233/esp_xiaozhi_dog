@@ -26,13 +26,13 @@ public:
         right_strip_ = new CircularStrip(LED_NUM, RIGHT_BLINK_GPIO);       
         if (left_strip_) {
             left_strip_->SetBrightness(10); // 设置亮度为中等
-            left_strip_->SetSpeed(50);      // 设置动画速度为50ms
+            left_strip_->SetSpeed(100);      // 设置动画速度为50ms
             left_strip_->SetEffect(1);      // 流水灯效果（CIRCULAR_STRIP_EFFECT_FLOW）
             left_strip_->Start();           // 启动动画
         }
         if (right_strip_) {
             right_strip_->SetBrightness(10); // 设置亮度为中等
-            right_strip_->SetSpeed(50);      // 设置动画速度为50ms
+            right_strip_->SetSpeed(100);      // 设置动画速度为50ms
             right_strip_->SetEffect(1);      // 流水灯效果（CIRCULAR_STRIP_EFFECT_FLOW）
             right_strip_->Start();           // 启动动画
         }
@@ -45,7 +45,7 @@ public:
         });
 
         methods_.AddMethod("SetEffect", "设置灯光效果", ParameterList({
-            Parameter("effect", "灯光效果编号:1-流水灯,2-彩虹灯,3-呼吸灯", kValueTypeNumber, true)
+            Parameter("effect", "灯光效果编号:1-流水灯,2-彩虹灯,3-呼吸灯,4-灯光关闭", kValueTypeNumber, true)
         }), [this](const ParameterList& parameters) {
                 left_strip_->SetEffect(static_cast<int>(parameters["effect"].number()));
                 right_strip_->SetEffect(static_cast<int>(parameters["effect"].number()));

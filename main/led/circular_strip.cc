@@ -125,14 +125,28 @@ void CircularStrip::OnTimer() {
     switch (effect_) {
         case 1: { // CIRCULAR_STRIP_EFFECT_FLOW
             static uint8_t flow_pos = 0;
+            static uint8_t hue = 0;
+            
+            // 清除所有LED
             for (int i = 0; i < led_num_; i++) {
-                if (i == flow_pos) {
-                    led_strip_set_pixel(led_strip_, i, brightness_, 0, 0);
-                } else {
-                    led_strip_set_pixel(led_strip_, i, 0, 0, 0);
-                }
+                led_strip_set_pixel(led_strip_, i, 0, 0, 0);
             }
+            // 创建流动效果，同时点亮多个LED
+            for (int i = 0; i < led_num_ +1; i++) {
+                int pos = (flow_pos - i + led_num_) % led_num_;
+                uint8_t r, g, b;
+                // 使用指数衰减来增加亮度差异
+                uint8_t brightness = brightness_ * (1 << (4 - i)) / 16;
+                // 使用HSV颜色空间，色相随时间变化
+                hsv2rgb(hue, 255, brightness, &r, &g, &b);
+                led_strip_set_pixel(led_strip_, pos, r, g, b);
+            }
+            
             flow_pos = (flow_pos + 1) % led_num_;
+            // 降低色相变化速度
+            if (flow_pos % 4 == 0) {  // 每4个位置才改变一次色相
+                hue = (hue + 1) % 255;
+            }
             break;
         }
         case 2: { // CIRCULAR_STRIP_EFFECT_RAINBOW

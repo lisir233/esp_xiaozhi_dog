@@ -470,9 +470,9 @@ void Ssd1306Display::eye_move_emtion_task()
 void Ssd1306Display::start_emtion()
 {
     ESP_LOGI(TAG, "start_emtion");
-    const char* emojis[] = {"$ $", "> <", "X X", "@_@" ,"T T" ,"O_O" };
+    const char* emojis[] = {, "> <",, "@_@" ,"O_O" };
     srand(time(NULL));
-    int random_index = rand() % 6;
+    int random_index = rand() % 3;
     ESP_LOGI(TAG, "random_index: %d", random_index);
     lv_label_set_text(emojy_lable, emojis[random_index]);
     // open_eyes();
