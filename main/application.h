@@ -21,7 +21,7 @@
 #include "ota.h"
 #include "background_task.h"
 #include "audio_processor.h"
-
+#include "./boards/xiaozhi-dog/pet_dog.h"
 #if CONFIG_USE_WAKE_WORD_DETECT
 #include "wake_word_detect.h"
 #endif
@@ -30,6 +30,7 @@
 #define AUDIO_INPUT_READY_EVENT (1 << 1)
 #define AUDIO_OUTPUT_READY_EVENT (1 << 2)
 #define CHECK_NEW_VERSION_DONE_EVENT (1 << 3)
+#define ACTION_TASK_EVENT (1 << 4)
 
 enum DeviceState {
     kDeviceStateUnknown,
@@ -42,6 +43,18 @@ enum DeviceState {
     kDeviceStateUpgrading,
     kDeviceStateActivating,
     kDeviceStateFatalError
+};
+
+enum ActionState {
+    kActionStateWalk,
+    kActionStateSleep,
+    kActionStateStand,
+    kActionStateSitdown,
+    kActionStateWalkBack,
+    kActionStateTurnLeft,
+    kActionStateTurnRight,
+    kActionStateWave,
+    kActionStateStop
 };
 
 #define OPUS_FRAME_DURATION_MS 60
@@ -58,6 +71,8 @@ public:
 
     void Start();
     DeviceState GetDeviceState() const { return device_state_; }
+    ActionState GetActionState() const { return action_state_; }
+    void SetActionState(ActionState newState);
     bool IsVoiceDetected() const { return voice_detected_; }
     void Schedule(std::function<void()> callback);
     void SetDeviceState(DeviceState state);
@@ -77,6 +92,7 @@ private:
     Application();
     ~Application();
 
+    PetDog dog;
 #if CONFIG_USE_WAKE_WORD_DETECT
     WakeWordDetect wake_word_detect_;
 #endif
@@ -114,6 +130,9 @@ private:
     OpusResampler input_resampler_;
     OpusResampler reference_resampler_;
     OpusResampler output_resampler_;
+
+    EventGroupHandle_t action_event_group_ = nullptr;
+    volatile ActionState action_state_ = kActionStateSleep;
 
     void MainEventLoop();
     void OnAudioInput();

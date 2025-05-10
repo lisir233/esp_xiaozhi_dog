@@ -28,6 +28,10 @@ public:
     virtual void SetTheme(const std::string& theme_name);
     virtual std::string GetTheme() { return current_theme_name_; }
 
+    virtual void idle_emtion()  {};
+    virtual void start_emtion() {};
+    virtual void stop_emtion()  {};
+
     inline int width() const { return width_; }
     inline int height() const { return height_; }
 
@@ -37,6 +41,7 @@ protected:
     
     esp_pm_lock_handle_t pm_lock_ = nullptr;
     lv_display_t *display_ = nullptr;
+    lv_disp_t *disp_ = nullptr;
 
     lv_obj_t *emotion_label_ = nullptr;
     lv_obj_t *network_label_ = nullptr;

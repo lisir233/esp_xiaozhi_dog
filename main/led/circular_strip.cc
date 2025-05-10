@@ -1,232 +1,186 @@
 #include "circular_strip.h"
-#include "application.h"
-#include <esp_log.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define TAG "CircularStrip"
+#include "esp_err.h"
+#include "driver/gpio.h"
 
-#define BLINK_INFINITE -1
+// 前置声明 TimerCallback 为 CircularStrip 的友元
+class CircularStrip;
+static void TimerCallback(TimerHandle_t timer);
 
-CircularStrip::CircularStrip(gpio_num_t gpio, uint8_t max_leds) : max_leds_(max_leds) {
-    // If the gpio is not connected, you should use NoLed class
-    assert(gpio != GPIO_NUM_NC);
-
-    colors_.resize(max_leds_);
-
-    led_strip_config_t strip_config = {};
-    strip_config.strip_gpio_num = gpio;
-    strip_config.max_leds = max_leds_;
-    strip_config.led_pixel_format = LED_PIXEL_FORMAT_GRB;
-    strip_config.led_model = LED_MODEL_WS2812;
-
-    led_strip_rmt_config_t rmt_config = {};
-    rmt_config.resolution_hz = 10 * 1000 * 1000; // 10MHz
-
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip_));
-    led_strip_clear(led_strip_);
-
-    esp_timer_create_args_t strip_timer_args = {
-        .callback = [](void *arg) {
-            auto strip = static_cast<CircularStrip*>(arg);
-            std::lock_guard<std::mutex> lock(strip->mutex_);
-            if (strip->strip_callback_ != nullptr) {
-                strip->strip_callback_();
-            }
-        },
-        .arg = this,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "strip_timer",
-        .skip_unhandled_events = false,
-    };
-    ESP_ERROR_CHECK(esp_timer_create(&strip_timer_args, &strip_timer_));
-}
-
-CircularStrip::~CircularStrip() {
-    esp_timer_stop(strip_timer_);
-    if (led_strip_ != nullptr) {
-        led_strip_del(led_strip_);
-    }
-}
-
-
-void CircularStrip::SetAllColor(StripColor color) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    esp_timer_stop(strip_timer_);
-    for (int i = 0; i < max_leds_; i++) {
-        colors_[i] = color;
-        led_strip_set_pixel(led_strip_, i, color.red, color.green, color.blue);
-    }
-    led_strip_refresh(led_strip_);
-}
-
-void CircularStrip::SetSingleColor(uint8_t index, StripColor color) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    esp_timer_stop(strip_timer_);
-    colors_[index] = color;
-    led_strip_set_pixel(led_strip_, index, color.red, color.green, color.blue);
-    led_strip_refresh(led_strip_);
-}
-
-void CircularStrip::Blink(StripColor color, int interval_ms) {
-    for (int i = 0; i < max_leds_; i++) {
-        colors_[i] = color;
-    }
-    StartStripTask(interval_ms, [this]() {
-        static bool on = true;
-        if (on) {
-            for (int i = 0; i < max_leds_; i++) {
-                led_strip_set_pixel(led_strip_, i, colors_[i].red, colors_[i].green, colors_[i].blue);
-            }
-            led_strip_refresh(led_strip_);
-        } else {
-            led_strip_clear(led_strip_);
-        }
-        on = !on;
-    });
-}
-
-void CircularStrip::FadeOut(int interval_ms) {
-    StartStripTask(interval_ms, [this]() {
-        bool all_off = true;
-        for (int i = 0; i < max_leds_; i++) {
-            colors_[i].red /= 2;
-            colors_[i].green /= 2;
-            colors_[i].blue /= 2;
-            if (colors_[i].red != 0 || colors_[i].green != 0 || colors_[i].blue != 0) {
-                all_off = false;
-            }
-            led_strip_set_pixel(led_strip_, i, colors_[i].red, colors_[i].green, colors_[i].blue);
-        }
-        if (all_off) {
-            led_strip_clear(led_strip_);
-            esp_timer_stop(strip_timer_);
-        } else {
-            led_strip_refresh(led_strip_);
-        }
-    });
-}
-
-void CircularStrip::Breathe(StripColor low, StripColor high, int interval_ms) {
-    StartStripTask(interval_ms, [this, low, high]() {
-        static bool increase = true;
-        static StripColor color = low;
-        if (increase) {
-            if (color.red < high.red) {
-                color.red++;
-            }
-            if (color.green < high.green) {
-                color.green++;
-            }
-            if (color.blue < high.blue) {
-                color.blue++;
-            }
-            if (color.red == high.red && color.green == high.green && color.blue == high.blue) {
-                increase = false;
-            }
-        } else {
-            if (color.red > low.red) {
-                color.red--;
-            }
-            if (color.green > low.green) {
-                color.green--;
-            }
-            if (color.blue > low.blue) {
-                color.blue--;
-            }
-            if (color.red == low.red && color.green == low.green && color.blue == low.blue) {
-                increase = true;
-            }
-        }
-        for (int i = 0; i < max_leds_; i++) {
-            led_strip_set_pixel(led_strip_, i, color.red, color.green, color.blue);
-        }
-        led_strip_refresh(led_strip_);
-    });
-}
-
-void CircularStrip::Scroll(StripColor low, StripColor high, int length, int interval_ms) {
-    for (int i = 0; i < max_leds_; i++) {
-        colors_[i] = low;
-    }
-    StartStripTask(interval_ms, [this, low, high, length]() {
-        static int offset = 0;
-        for (int i = 0; i < max_leds_; i++) {
-            colors_[i] = low;
-        }
-        for (int j = 0; j < length; j++) {
-            int i = (offset + j) % max_leds_;
-            colors_[i] = high;
-        }
-        for (int i = 0; i < max_leds_; i++) {
-            led_strip_set_pixel(led_strip_, i, colors_[i].red, colors_[i].green, colors_[i].blue);
-        }
-        led_strip_refresh(led_strip_);
-        offset = (offset + 1) % max_leds_;
-    });
-}
-
-void CircularStrip::StartStripTask(int interval_ms, std::function<void()> cb) {
-    if (led_strip_ == nullptr) {
+// HSV颜色空间转RGB颜色空间
+// h: 色相 (0-255)
+// s: 饱和度 (0-255) 
+// v: 明度 (0-255)
+// r,g,b: 输出的RGB值 (0-255)
+static void hsv2rgb(uint8_t h, uint8_t s, uint8_t v, uint8_t* r, uint8_t* g, uint8_t* b) {
+    if (s == 0) {
+        *r = *g = *b = v;
         return;
     }
 
-    std::lock_guard<std::mutex> lock(mutex_);
-    esp_timer_stop(strip_timer_);
-    
-    strip_callback_ = cb;
-    esp_timer_start_periodic(strip_timer_, interval_ms * 1000);
+    uint8_t region = h / 43;
+    uint8_t remainder = (h - (region * 43)) * 6; 
+
+    uint8_t p = (v * (255 - s)) >> 8;
+    uint8_t q = (v * (255 - ((s * remainder) >> 8))) >> 8;
+    uint8_t t = (v * (255 - ((s * (255 - remainder)) >> 8))) >> 8;
+
+    switch (region) {
+        case 0:
+            *r = v; *g = t; *b = p;
+            break;
+        case 1:
+            *r = q; *g = v; *b = p;
+            break;
+        case 2:
+            *r = p; *g = v; *b = t;
+            break;
+        case 3:
+            *r = p; *g = q; *b = v;
+            break;
+        case 4:
+            *r = t; *g = p; *b = v;
+            break;
+        default:
+            *r = v; *g = p; *b = q;
+            break;
+    }
 }
 
-void CircularStrip::SetBrightness(uint8_t default_brightness, uint8_t low_brightness) {
-    default_brightness_ = default_brightness;
-    low_brightness_ = low_brightness;
-    OnStateChanged();
+// --- CircularStrip 类实现 ---
+
+// 静态定时器回调，转发到对象成员
+static void TimerCallback(TimerHandle_t timer) {
+    auto* this_strip = static_cast<CircularStrip*>(pvTimerGetTimerID(timer));
+    if (this_strip) {
+        this_strip->OnTimer();
+    }
+}
+
+CircularStrip::CircularStrip(uint16_t led_num, gpio_num_t pin)
+    : led_num_(led_num), pin_(pin), brightness_(128), speed_ms_(50), effect_(0) {
+    // 创建定时器
+    timer_ = xTimerCreate("led_effect", pdMS_TO_TICKS(speed_ms_), pdTRUE, this, TimerCallback);
+    // 初始化 WS2812 LED 灯带配置
+    led_strip_config_t strip_config = {
+        .strip_gpio_num = pin_,
+        .max_leds = led_num_,
+        .led_pixel_format = LED_PIXEL_FORMAT_GRB,
+        .led_model = LED_MODEL_WS2812,
+        .flags = {
+            .invert_out = false,
+        },
+    };
+    led_strip_rmt_config_t rmt_config = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = 10 * 1000 * 1000,
+        .flags = {
+            .with_dma = false,
+        },
+    };
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip_));
+}
+
+CircularStrip::~CircularStrip() {
+    if (timer_) {
+        xTimerDelete(timer_, 0);
+    }
+    // todo：如需释放 led_strip_，请根据 led_strip API 适配
+}
+
+void CircularStrip::SetEffect(int effect) {
+    effect_ = effect;
+}
+
+void CircularStrip::SetBrightness(uint8_t brightness){
+    brightness_ = brightness;
+}
+
+void CircularStrip::SetSpeed(uint16_t speed_ms) {
+    speed_ms_ = speed_ms;
+    if (timer_) {
+        xTimerChangePeriod(timer_, pdMS_TO_TICKS(speed_ms_), 0);
+    }
+}
+
+void CircularStrip::Start() {
+    if (timer_) {
+        xTimerStart(timer_, 0);
+    }
+}
+
+void CircularStrip::Stop() {
+    if (timer_) {
+        xTimerStop(timer_, 0);
+    }
 }
 
 void CircularStrip::OnStateChanged() {
-    auto& app = Application::GetInstance();
-    auto device_state = app.GetDeviceState();
-    switch (device_state) {
-        case kDeviceStateStarting: {
-            StripColor low = { 0, 0, 0 };
-            StripColor high = { low_brightness_, low_brightness_, default_brightness_ };
-            Scroll(low, high, 3, 100);
+    // 可根据设备状态自定义灯效切换
+}
+
+void CircularStrip::OnTimer() {
+    switch (effect_) {
+        case 1: { // CIRCULAR_STRIP_EFFECT_FLOW
+            static uint8_t flow_pos = 0;
+            static uint8_t hue = 0;
+            
+            // 清除所有LED
+            for (int i = 0; i < led_num_; i++) {
+                led_strip_set_pixel(led_strip_, i, 0, 0, 0);
+            }
+            // 创建流动效果，同时点亮多个LED
+            for (int i = 0; i < led_num_ +1; i++) {
+                int pos = (flow_pos - i + led_num_) % led_num_;
+                uint8_t r, g, b;
+                // 使用指数衰减来增加亮度差异
+                uint8_t brightness = brightness_ * (1 << (4 - i)) / 16;
+                // 使用HSV颜色空间，色相随时间变化
+                hsv2rgb(hue, 255, brightness, &r, &g, &b);
+                led_strip_set_pixel(led_strip_, pos, r, g, b);
+            }
+            
+            flow_pos = (flow_pos + 1) % led_num_;
+            // 降低色相变化速度
+            if (flow_pos % 4 == 0) {  // 每4个位置才改变一次色相
+                hue = (hue + 1) % 255;
+            }
             break;
         }
-        case kDeviceStateWifiConfiguring: {
-            StripColor color = { low_brightness_, low_brightness_, default_brightness_ };
-            Blink(color, 500);
+        case 2: { // CIRCULAR_STRIP_EFFECT_RAINBOW
+            static uint8_t hue = 0;
+            for (int i = 0; i < led_num_; i++) {
+                uint8_t h = (hue + i * 255 / led_num_) % 255;
+                uint8_t r, g, b;
+                hsv2rgb(h, 255, brightness_, &r, &g, &b);
+                led_strip_set_pixel(led_strip_, i, r, g, b);
+            }
+            hue = (hue + 1) % 255;
             break;
         }
-        case kDeviceStateIdle:
-            FadeOut(50);
-            break;
-        case kDeviceStateConnecting: {
-            StripColor color = { low_brightness_, low_brightness_, default_brightness_ };
-            SetAllColor(color);
-            break;
-        }
-        case kDeviceStateListening: {
-            StripColor color = { default_brightness_, low_brightness_, low_brightness_ };
-            SetAllColor(color);
-            break;
-        }
-        case kDeviceStateSpeaking: {
-            StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
-            SetAllColor(color);
+        case 3: { // CIRCULAR_STRIP_EFFECT_BREATH
+            static uint8_t breath_val = 0;
+            static bool increasing = true;
+            for (int i = 0; i < led_num_; i++) {
+                led_strip_set_pixel(led_strip_, i, breath_val, breath_val, breath_val);
+            }
+            if (increasing) {
+                breath_val++;
+                if (breath_val >= brightness_) increasing = false;
+            } else {
+                breath_val--;
+                if (breath_val == 0) increasing = true;
+            }
             break;
         }
-        case kDeviceStateUpgrading: {
-            StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
-            Blink(color, 100);
+        default: {
+            for (int i = 0; i < led_num_; i++) {
+                led_strip_set_pixel(led_strip_, i, 0, 0, 0);
+            }
             break;
         }
-        case kDeviceStateActivating: {
-            StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
-            Blink(color, 500);
-            break;
-        }
-        default:
-            ESP_LOGW(TAG, "Unknown led strip event: %d", device_state);
-            return;
     }
+    led_strip_refresh(led_strip_);
 }

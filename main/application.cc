@@ -41,6 +41,7 @@ static const char* const STATE_STRINGS[] = {
 
 Application::Application() {
     event_group_ = xEventGroupCreate();
+    action_event_group_ = xEventGroupCreate();
     background_task_ = new BackgroundTask(4096 * 8);
 
 #if CONFIG_USE_AUDIO_PROCESSOR
@@ -72,6 +73,7 @@ Application::~Application() {
         delete background_task_;
     }
     vEventGroupDelete(event_group_);
+    vEventGroupDelete(action_event_group_);
 }
 
 void Application::CheckNewVersion() {
@@ -577,6 +579,16 @@ void Application::Start() {
     wake_word_detect_.StartDetection();
 #endif
 
+    dog.InitializeDog(LEDC_OUTPUT_IO_1,LEDC_OUTPUT_IO_2,LEDC_OUTPUT_IO_3,LEDC_OUTPUT_IO_4);
+    dog.OnActionTask([this]()
+    {
+        auto& app = Application::GetInstance();
+        ActionState state = app.GetActionState();
+        if(xEventGroupWaitBits(action_event_group_,ACTION_TASK_EVENT,pdTRUE,pdTRUE,0))
+        {
+            app.dog.Action(state);
+        }
+    });
     // Wait for the new version check to finish
     xEventGroupWaitBits(event_group_, CHECK_NEW_VERSION_DONE_EVENT, pdTRUE, pdFALSE, portMAX_DELAY);
     SetDeviceState(kDeviceStateIdle);
@@ -807,6 +819,8 @@ void Application::SetDeviceState(DeviceState state) {
         case kDeviceStateIdle:
             display->SetStatus(Lang::Strings::STANDBY);
             display->SetEmotion("neutral");
+            SetActionState(kActionStateSleep);
+            display->idle_emtion();
             audio_processor_->Stop();
 #if CONFIG_USE_WAKE_WORD_DETECT
             wake_word_detect_.StartDetection();
@@ -816,10 +830,12 @@ void Application::SetDeviceState(DeviceState state) {
             display->SetStatus(Lang::Strings::CONNECTING);
             display->SetEmotion("neutral");
             display->SetChatMessage("system", "");
+            display->start_emtion();
             break;
         case kDeviceStateListening:
             display->SetStatus(Lang::Strings::LISTENING);
             display->SetEmotion("neutral");
+            SetActionState(kActionStateStand);
 
             // Update the IoT states before sending the start listening command
             UpdateIotStates();
@@ -927,4 +943,9 @@ bool Application::CanEnterSleepMode() {
 
     // Now it is safe to enter sleep mode
     return true;
+}
+
+void Application::SetActionState(ActionState newState) {
+    xEventGroupSetBits(action_event_group_, ACTION_TASK_EVENT);
+    action_state_ = newState;
 }
