@@ -2,15 +2,17 @@
 #include <vector>
 #include <functional>
 
-#include <esp_timer.h>
 #include <driver/gpio.h>
 #include <esp_adc/adc_oneshot.h>
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 class PowerManager {
 private:
     std::function<void(bool)> on_charging_status_changed_;
     std::function<void(bool)> on_low_battery_status_changed_;
+    std::function<void(uint8_t)> on_battery_level_changed_;
 
     gpio_num_t charging_pin_ = GPIO_NUM_NC;
     std::vector<uint16_t> adc_values_;
@@ -23,6 +25,16 @@ private:
     const int kLowBatteryLevel = 20;
 
     adc_oneshot_unit_handle_t adc_handle_;
+    TaskHandle_t battery_check_task_handle_ = nullptr;
+
+    static void BatteryCheckTask(void* arg) {
+        PowerManager* self = static_cast<PowerManager*>(arg);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        while (1) {
+            self->CheckBatteryStatus();
+            vTaskDelay(pdMS_TO_TICKS(10000)); // 每10秒检查一次
+        }
+    }
 
     void CheckBatteryStatus() {
         // Get charging status
@@ -106,6 +118,11 @@ private:
             }
         }
 
+        // 在计算完电池电量后，触发回调
+        if (on_battery_level_changed_) {
+            on_battery_level_changed_(battery_level_);
+        }
+
         // Check low battery status
         if (adc_values_.size() >= kBatteryAdcDataCount) {
             bool new_low_battery_status = battery_level_ <= kLowBatteryLevel;
@@ -123,22 +140,15 @@ private:
     }
 
 public:
-    esp_timer_handle_t timer_handle_;
     uint16_t low_voltage_ = 2877;
     PowerManager(gpio_num_t pin) : charging_pin_(pin) {
-        // 创建电池电量检查定时器
-        esp_timer_create_args_t timer_args = {
-            .callback = [](void* arg) {
-                PowerManager* self = static_cast<PowerManager*>(arg);
-                self->CheckBatteryStatus();
-            },
-            .arg = this,
-            .dispatch_method = ESP_TIMER_TASK,
-            .name = "battery_check_timer",
-            .skip_unhandled_events = true,
-        };
-        ESP_ERROR_CHECK(esp_timer_create(&timer_args, &timer_handle_));
-        ESP_ERROR_CHECK(esp_timer_start_periodic(timer_handle_, 1000000));
+        // 创建电池电量检查任务
+        xTaskCreate(BatteryCheckTask,
+                   "battery_check",
+                   4096,
+                   this,
+                   5,
+                   &battery_check_task_handle_);
 
         // 初始化 ADC
         adc_oneshot_unit_init_cfg_t init_config = {
@@ -155,9 +165,8 @@ public:
     }
 
     ~PowerManager() {
-        if (timer_handle_) {
-            esp_timer_stop(timer_handle_);
-            esp_timer_delete(timer_handle_);
+        if (battery_check_task_handle_) {
+            vTaskDelete(battery_check_task_handle_);
         }
         if (adc_handle_) {
             adc_oneshot_del_unit(adc_handle_);
@@ -187,5 +196,9 @@ public:
 
     void OnChargingStatusChanged(std::function<void(bool)> callback) {
         on_charging_status_changed_ = callback;
+    }
+
+    void OnBatteryLevelChanged(std::function<void(uint8_t)> callback) {
+        on_battery_level_changed_ = callback;
     }
 };

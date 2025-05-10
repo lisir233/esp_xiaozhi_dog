@@ -130,8 +130,21 @@ public:
     void InitializePowerManager() {
         power_manager_ = new PowerManager(CHRG_PIN);
         power_manager_->OnChargingStatusChanged([this](bool is_charging) {
+            // 充电状态改变时更新显示
+            auto display = static_cast<Ssd1306Display*>(GetDisplay());
+            if (display) {
+                display->UpdateBatteryStatus(power_manager_->GetBatteryLevel(), is_charging);
+            }
         });
-        
+
+        // 添加电池电量变化的回调
+        power_manager_->OnBatteryLevelChanged([this](uint8_t level) {
+            // 电池电量变化时更新显示
+            auto display = static_cast<Ssd1306Display*>(GetDisplay());
+            if (display) {
+                display->UpdateBatteryStatus(level, power_manager_->IsCharging());
+            }
+        });
     }
     virtual bool GetBatteryLevel(int& level, bool& charging, bool& discharging) override {
         charging = power_manager_->IsCharging();
