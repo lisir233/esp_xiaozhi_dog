@@ -36,7 +36,7 @@ private:
     int cur_square2_y = 0;
 
     bool show_emotion_label_ = false;  // 默认不显示emotion_label_
-    bool show_emojy_label_ = true;     // 默认显示emojy_lable
+    bool show_emojy_label_ = false;     // 默认显示emojy_lable
     bool show_eyes_ = false;           // 默认不显示眼睛
 
     virtual bool Lock(int timeout_ms = 0) override;
@@ -125,6 +125,9 @@ public:
         }
     }
     bool GetShowEyes() const { return show_eyes_; }
+
+    void show_static_emotion(const char* emotion);
+    void hide_static_emotion();
 };
 
 #endif // SSD1306_DISPLAY_H

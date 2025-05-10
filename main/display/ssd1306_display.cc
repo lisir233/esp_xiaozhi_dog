@@ -469,35 +469,69 @@ void Ssd1306Display::eye_move_emtion_task()
 
 void Ssd1306Display::start_emtion()
 {
-    ESP_LOGI(TAG, "start_emtion");
-    const char* emojis[] = {, "> <",, "@_@" ,"O_O" };
-    srand(time(NULL));
-    int random_index = rand() % 3;
-    ESP_LOGI(TAG, "random_index: %d", random_index);
-    lv_label_set_text(emojy_lable, emojis[random_index]);
-    // open_eyes();
-    // SetShowEyes(false);  // 这会自动启动眼睛动画任务
-    // lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
-
+    SetShowEmojyLabel(false);
+    SetShowEyes(true);
+    open_eyes();
+    lv_obj_clear_flag(square1, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(square2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Ssd1306Display::stop_emtion()
 {
-    ESP_LOGI(TAG, "stop_emtion");
-    // SetShowEyes(false);  // 这会自动停止眼睛动画任务
-    // lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
+    if (blink_task_handle != NULL)
+    {
+        vTaskDelete(blink_task_handle);
+    }
+    if(idle_task_handle != NULL)
+    {
+        vTaskDelete(idle_task_handle);
+    }
+    
+    lv_obj_add_flag(square1, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(square2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
 }
 
 void Ssd1306Display::idle_emtion()
 {
-    ESP_LOGI(TAG, "idle_emtion");
-    lv_label_set_text(emojy_lable, "-_-");
+    if (blink_task_handle != NULL)
+    {
+        vTaskDelete(blink_task_handle);
+    }
+    if(idle_task_handle != NULL)
+    {
+        vTaskDelete(idle_task_handle);
+    }
+    if (square1 != NULL)
+    {
+        lv_obj_clear_flag(square1, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(square2, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    to_any_position(EYE_GAP,0,-EYE_GAP,0);
+    close_eyes();
+}
+
+void Ssd1306Display::show_static_emotion(const char* emotion)
+{
+    ESP_LOGI(TAG, "show_static_emotion");
+    if (strlen(emotion) == 0) {
+        const char* emotions[] = {"$ $", "> <", "X X"};
+        int random_index = rand() % 3;
+        emotion = emotions[random_index];
+    }
+    lv_label_set_text(emojy_lable, emotion);
+    SetShowEmojyLabel(true);
+    SetShowEyes(false);
     lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
-    // if (square1 != NULL)
-    // {
-    //     lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
-    //     // to_any_position(EYE_GAP,0,-EYE_GAP,0);
-    //     // close_eyes();
-    //     // SetShowEyes(false);  // 这会自动启动眼睛动画任务
-    // }
+}
+
+void Ssd1306Display::hide_static_emotion()
+{
+    ESP_LOGI(TAG, "hide_static_emotion");
+    SetShowEmojyLabel(false);
+    SetShowEyes(true);
+    
 }
